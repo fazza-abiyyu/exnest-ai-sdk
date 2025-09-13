@@ -31,7 +31,7 @@ export async function exampleSimpleWrapper() {
 export async function exampleAdvancedClient() {
     const exnest = new AdvancedExnestAI({
         apiKey: "your-api-key-here",
-        baseUrl: process.env.EXNEST_API_URL || "https://exnest.fazzaabiyyu.xyz/v1",
+        baseUrl: process.env.EXNEST_API_URL || "https://api.exnest.app/v1",
         timeout: 30000,
         retries: 3,
         debug: true

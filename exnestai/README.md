@@ -5,12 +5,12 @@ This directory contains the client services for interacting with the ExnestAI AP
 ## Services Overview
 
 ### 1. Wrapper Service (`wrapper.services.ts`)
-A simple, lightweight wrapper following the FazzaAI pattern for basic AI interactions.
+A simple, lightweight wrapper following the ExnestAI pattern for basic AI interactions.
 
 ```typescript
 import { ExnestAI } from './wrapper.services';
 
-const exnest = new ExnestAI("your-api-key", process.env.EXNEST_API_URL || "https://exnest.fazzaabiyyu.xyz/v1");
+const exnest = new ExnestAI("your-api-key", process.env.EXNEST_API_URL || "https://api.exnest.app/v1");
 
 // Simple chat
 const response = await exnest.chat("openai:gpt-4o-mini", [
@@ -116,7 +116,7 @@ The API supports two authentication methods:
 
 ### Method 2: Authorization Bearer Header (n8n Compatible)
 ```bash
-curl -X POST "https://exnest.fazzaabiyyu.xyz/v1/completions" \
+curl -X POST "https://api.exnest.app/v1/completions" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-api-key-here" \
   -d '{

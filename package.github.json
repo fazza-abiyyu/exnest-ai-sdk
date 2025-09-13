@@ -1,5 +1,5 @@
 {
-  "name": "@exnest-dev/ai",
+  "name": "@fazza-abiyyu/ai-sdk",
   "version": "1.0.4",
   "description": "Official SDK for Exnest AI - A unified API for multiple AI models",
   "main": "dist/index.js",
@@ -9,10 +9,7 @@
   ],
   "scripts": {
     "build": "tsc",
-    "prepublishOnly": "npm run build",
-    "publish:npm": "npm publish --access public",
-    "publish:github": "npm publish --access public --registry https://npm.pkg.github.com/",
-    "publish:all": "node scripts/publish-all.js"
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "ai",
@@ -38,6 +35,9 @@
   "devDependencies": {
     "@types/node": "^22.18.1",
     "typescript": "^5.9.2"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/"
   },
   "engines": {
     "node": ">=18.0.0"

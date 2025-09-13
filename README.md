@@ -1,10 +1,10 @@
 # Exnest AI SDK
 
-[![npm version](https://img.shields.io/npm/v/@exnest/ai-sdk)](https://www.npmjs.com/package/@exnest/ai-sdk)
-[![npm downloads](https://img.shields.io/npm/dm/@exnest/ai-sdk)](https://www.npmjs.com/package/@exnest/ai-sdk)
-[![License](https://img.shields.io/npm/l/@exnest/ai-sdk)](LICENSE)
+[![npm version](https://img.shields.io/npm/v/@exnest-dev/ai)](https://www.npmjs.com/package/@exnest-dev/ai)
+[![npm downloads](https://img.shields.io/npm/dm/@exnest-dev/ai)](https://www.npmjs.com/package/@exnest-dev/ai)
+[![License](https://img.shields.io/npm/l/@exnest-dev/ai)](LICENSE)
 
-The official Node.js SDK for Exnest AI - A unified API for multiple AI models including OpenAI, Anthropic, Google Gemini, and more.
+The official Node.js SDK for Exnest AI - A unified API for multiple AI models including OpenAI, Google Gemini, Moonshot, and more.
 
 ## Features
 
@@ -19,7 +19,7 @@ The official Node.js SDK for Exnest AI - A unified API for multiple AI models in
 ## Installation
 
 ```bash
-npm install @exnest/ai-sdk
+npm install @exnest-dev/ai
 ```
 
 ## Quick Start
@@ -27,18 +27,18 @@ npm install @exnest/ai-sdk
 ### Using the Advanced Client (Recommended)
 
 ```javascript
-import { ExnestAI } from '@exnest/ai-sdk';
+import { ExnestAI } from '@exnest-dev/ai';
 
 const exnest = new ExnestAI({
   apiKey: 'your-api-key',
-  baseUrl: 'https://exnest.fazzaabiyyu.xyz/v1', // Optional, uses default if not provided
+  baseUrl: 'https://api.exnest.app/v1', // Optional, uses default if not provided
   timeout: 30000, // Optional
   retries: 3, // Optional
   debug: true // Optional
 });
 
 // Simple chat completion
-const response = await exnest.chat('openai:gpt-4o-mini', [
+const response = await exnest.chat('gpt-4.1-mini', [
   { role: 'user', content: 'Hello, how are you?' }
 ]);
 
@@ -48,12 +48,12 @@ console.log(response.data.choices[0].message.content);
 ### Using the Simple Wrapper
 
 ```javascript
-import { ExnestWrapper } from '@exnest/ai-sdk';
+import { ExnestWrapper } from '@exnest-dev/ai';
 
 const exnest = new ExnestWrapper('your-api-key');
 
 // Simple response
-const response = await exnest.response('google:gemini-2.0-flash-exp', 'What is TypeScript?');
+const response = await exnest.response('gemini-2.5-flash', 'What is TypeScript?');
 console.log(response.data.choices[0].message.content);
 ```
 
@@ -64,7 +64,7 @@ console.log(response.data.choices[0].message.content);
 ```typescript
 interface ExnestClientOptions {
   apiKey: string;           // Required: Your ExnestAI API key
-  baseUrl?: string;         // Optional: API base URL (default: https://exnest.fazzaabiyyu.xyz/v1)
+  baseUrl?: string;         // Optional: API base URL (default: https://api.exnest.app/v1)
   timeout?: number;         // Optional: Request timeout in ms (default: 30000)
   retries?: number;         // Optional: Number of retries (default: 3)
   retryDelay?: number;      // Optional: Delay between retries in ms (default: 1000)
@@ -76,7 +76,7 @@ interface ExnestClientOptions {
 
 ```typescript
 const response = await exnest.chat(
-  'openai:gpt-4o-mini', // Model identifier
+  'gpt-4.1-mini', // Model identifier
   [
     { role: 'system', content: 'You are a helpful assistant.' },
     { role: 'user', content: 'Explain async/await in JavaScript' }
@@ -93,7 +93,7 @@ const response = await exnest.chat(
 
 ```typescript
 const response = await exnest.responses(
-  'google:gemini-2.0-flash-exp', // Model identifier
+  'gemini-2.5-flash', // Model identifier
   'What is TypeScript?',         // User input
   200                            // Optional max tokens
 );
@@ -120,8 +120,9 @@ This makes the SDK fully compatible with n8n and other tools that use standard B
 ## Supported Models
 
 Currently available models:
-- **OpenAI**: `openai:gpt-4o-mini` (GPT 4o Mini)
-- **Google**: `google:gemini-2.0-flash-exp` (Gemini 2.0 Flash)
+- **OpenAI**: `gpt-4.1-mini`
+- **Google**: `gemini-2.5-flash`
+- **Moonshot**: `moonshot-v1-8k`, `moonshot-v1-32k`, `moonshot-v1-128k`
 
 More models will be added in the future.
 
@@ -171,7 +172,7 @@ console.log('Service status:', health.status);
 ## Integration with Express.js
 
 ```javascript
-import { ExnestAI } from '@exnest/ai-sdk';
+import { ExnestAI } from '@exnest-dev/ai';
 import express from 'express';
 
 const app = express();
@@ -202,13 +203,13 @@ app.post('/chat', async (req, res) => {
 The SDK includes full TypeScript definitions:
 
 ```typescript
-import { ExnestAI, ExnestMessage, ExnestResponse } from '@exnest/ai-sdk';
+import { ExnestAI, ExnestMessage, ExnestResponse } from '@exnest-dev/ai';
 
 const messages: ExnestMessage[] = [
   { role: 'user', content: 'Hello!' }
 ];
 
-const response: ExnestResponse = await exnest.chat('openai:gpt-4o-mini', messages);
+const response: ExnestResponse = await exnest.chat('gpt-4.1-mini', messages);
 ```
 
 ## Environment Variables
@@ -216,7 +217,7 @@ const response: ExnestResponse = await exnest.chat('openai:gpt-4o-mini', message
 You can set the base URL using environment variables:
 
 ```env
-EXNEST_API_URL=https://exnest.fazzaabiyyu.xyz/v1
+EXNEST_API_URL=https://api.exnest.app/v1
 ```
 
 ## License
@@ -225,4 +226,4 @@ This SDK is licensed under the MIT License. See [LICENSE](LICENSE) for more info
 
 ## Support
 
-For issues and feature requests, please [open an issue](https://github.com/fazzaabiyyu/exnest-ai-sdk/issues) on GitHub.
+For issues and feature requests, please [open an issue](https://github.com/fazza-abiyyu/exnest-ai-sdk/issues) on GitHub.
