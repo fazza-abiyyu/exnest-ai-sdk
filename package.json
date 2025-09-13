@@ -1,0 +1,53 @@
+{
+  "name": "exnest-ai-sdk",
+  "version": "1.0.0",
+  "description": "Official SDK for Exnest AI - A unified API for multiple AI models",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/**/*"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "ai",
+    "sdk",
+    "exnest",
+    "openai",
+    "anthropic",
+    "gemini",
+    "chatgpt",
+    "llm",
+    "api"
+  ],
+  "author": "Fazza Abiyyu",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fazzaabiyyu/exnest-ai-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/fazzaabiyyu/exnest-ai-sdk/issues"
+  },
+  "homepage": "https://github.com/fazzaabiyyu/exnest-ai-sdk#readme",
+  "dependencies": {
+    "@prisma/client": "^6.15.0",
+    "dotenv": "^16.6.1",
+    "express": "^5.1.0",
+    "nodemon": "^3.1.10",
+    "prisma": "^6.15.0",
+    "ts-node": "^10.9.2"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.18.1",
+    "concurrently": "^9.2.1",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.9.2"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
