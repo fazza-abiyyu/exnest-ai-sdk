@@ -1,6 +1,6 @@
 {
-  "name": "@fazza-abiyyu/ai-sdk",
-  "version": "1.0.4",
+  "name": "@fazza-abiyyu/exnest-ai-sdk",
+  "version": "1.0.7",
   "description": "Official SDK for Exnest AI - A unified API for multiple AI models",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

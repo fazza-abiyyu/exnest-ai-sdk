@@ -2,8 +2,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "Node",
+    "module": "ES2020",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,
@@ -15,5 +15,6 @@
     "sourceMap": true,
     "removeComments": false
   },
-  "include": ["exnestai/**/*"]
+  "include": ["exnestai/**/*"],
+  "exclude": ["exnestai/test/**/*", "node_modules", "dist", "**/*.test.ts"]
 }

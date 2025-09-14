@@ -32,6 +32,20 @@ export interface ExnestResponse {
         execution_time: string;
     };
 }
+export interface ExnestStreamChunk {
+    id: string;
+    object: string;
+    created: number;
+    model: string;
+    choices: Array<{
+        index: number;
+        delta: {
+            role?: string;
+            content?: string;
+        };
+        finish_reason: string | null;
+    }>;
+}
 export declare class ExnestAI {
     private apiKey;
     private baseUrl;
@@ -45,6 +59,14 @@ export declare class ExnestAI {
      */
     chat(model: string, messages: ExnestMessage[], maxTokens?: number): Promise<ExnestResponse>;
     /**
+     * Stream chat completion responses
+     * @param model - Model identifier
+     * @param messages - Array of chat messages
+     * @param maxTokens - Optional maximum tokens to generate
+     * @returns AsyncGenerator<ExnestStreamChunk>
+     */
+    stream(model: string, messages: ExnestMessage[], maxTokens?: number): AsyncGenerator<ExnestStreamChunk, void, unknown>;
+    /**
      * Simple response method for single-turn conversations
      * @param model - Model identifier
      * @param input - User input string
@@ -52,6 +74,17 @@ export declare class ExnestAI {
      * @returns Promise<ExnestResponse>
      */
     response(model: string, input: string, maxTokens?: number): Promise<ExnestResponse>;
+    /**
+     * Get all available models
+     * @returns Promise<ExnestResponse>
+     */
+    getModels(): Promise<ExnestResponse>;
+    /**
+     * Get a specific model by name
+     * @param modelName - Name of the model to retrieve
+     * @returns Promise<ExnestResponse>
+     */
+    getModel(modelName: string): Promise<ExnestResponse>;
     /**
      * Get the API key being used (useful for debugging)
      * @returns string - The API key (masked for security)

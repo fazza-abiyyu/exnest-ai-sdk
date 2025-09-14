@@ -5,7 +5,7 @@ This directory contains the client services for interacting with the ExnestAI AP
 ## Services Overview
 
 ### 1. Wrapper Service (`wrapper.services.ts`)
-A simple, lightweight wrapper following the ExnestAI pattern for basic AI interactions.
+A simple, lightweight wrapper following the FazzaAI pattern for basic AI interactions.
 
 ```typescript
 import { ExnestAI } from './wrapper.services';
@@ -19,6 +19,18 @@ const response = await exnest.chat("openai:gpt-4o-mini", [
 
 // Quick response
 const result = await exnest.response("google:gemini-2.0-flash-exp", "What is TypeScript?", 200);
+
+// Streaming response
+for await (const chunk of exnest.stream("openai:gpt-4o-mini", [
+  { role: "user", content: "Tell me a story" }
+])) {
+  if (chunk.choices[0]?.delta?.content) {
+    process.stdout.write(chunk.choices[0].delta.content);
+  }
+}
+
+// Get models
+const models = await exnest.getModels();
 ```
 
 ### 2. Client Service (`client.services.ts`)
@@ -45,9 +57,24 @@ const response = await exnest.chat(
   {
     temperature: 0.7,
     maxTokens: 500,
-    timeout: 15000
+    timeout: 15000,
+    openaiCompatible: true
   }
 );
+
+// Streaming response with options
+for await (const chunk of exnest.stream(
+  "openai:gpt-4o-mini",
+  [{ role: "user", content: "Write a poem" }],
+  { maxTokens: 300 }
+)) {
+  if (chunk.choices[0]?.delta?.content) {
+    process.stdout.write(chunk.choices[0].delta.content);
+  }
+}
+
+// Get models with options
+const models = await exnest.getModels({ openaiCompatible: true });
 ```
 
 ## API Reference
@@ -87,6 +114,24 @@ interface ExnestResponse {
     version: string;
     execution_time: string;
   };
+}
+```
+
+### ExnestStreamChunk Interface
+```typescript
+interface ExnestStreamChunk {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: Array<{
+    index: number;
+    delta: {
+      role?: string;
+      content?: string;
+    };
+    finish_reason: string | null;
+  }>;
 }
 ```
 
@@ -172,6 +217,53 @@ interface ExnestChatOptions {
   temperature?: number;     // Optional: Model temperature (0-2)
   maxTokens?: number;       // Optional: Maximum tokens to generate
   timeout?: number;         // Optional: Request-specific timeout
+  openaiCompatible?: boolean; // Optional: Return OpenAI-compatible format
+  stream?: boolean;         // Optional: Enable streaming response
+}
+```
+
+## Models API
+
+The SDK also provides access to the models API:
+
+```typescript
+// Get all models
+const allModels = await exnest.getModels();
+
+// Get models with OpenAI-compatible format
+const openaiModels = await exnest.getModels({ openaiCompatible: true });
+
+// Get models by provider
+const providerModels = await exnest.getModelsByProvider("openai");
+
+// Get a specific model
+const model = await exnest.getModel("gpt-4o-mini");
+```
+
+## Streaming Responses
+
+The SDK supports streaming responses for real-time output:
+
+```typescript
+// Using the advanced client
+for await (const chunk of exnest.stream(
+  "openai:gpt-4o-mini",
+  [{ role: "user", content: "Tell me a story" }]
+)) {
+  if (chunk.choices[0]?.delta?.content) {
+    process.stdout.write(chunk.choices[0].delta.content);
+  }
+}
+
+// Using the simple wrapper
+for await (const chunk of exnest.stream(
+  "openai:gpt-4o-mini",
+  [{ role: "user", content: "Count to 100" }],
+  200 // maxTokens
+)) {
+  if (chunk.choices[0]?.delta?.content) {
+    process.stdout.write(chunk.choices[0].delta.content);
+  }
 }
 ```
 
@@ -196,6 +288,30 @@ export const chatController = async (req: Request, res: Response) => {
   try {
     const result = await exnest.chat(req.body.model, req.body.messages);
     res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Streaming controller
+export const streamController = async (req: Request, res: Response) => {
+  const apiKey = req.body.api_key || 
+    (req.headers.authorization?.startsWith('Bearer ') ? 
+     req.headers.authorization.substring(7) : null);
+  
+  const exnest = new ExnestAI({ apiKey });
+  
+  try {
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+    
+    for await (const chunk of exnest.stream(req.body.model, req.body.messages)) {
+      res.write(`data: ${JSON.stringify(chunk)}\n\n`);
+    }
+    
+    res.write('data: [DONE]\n\n');
+    res.end();
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -236,11 +352,13 @@ console.log('Current configuration:', config);
 
 ## Examples
 
-See `../examples/examples.ts` for comprehensive usage examples including:
+See `examples.ts` for comprehensive usage examples including:
 - Simple wrapper usage
 - Advanced client configuration
+- Streaming responses
 - Error handling patterns
 - Configuration updates
+- Model operations
 - Controller integration
 
 ## File Structure
@@ -249,7 +367,7 @@ See `../examples/examples.ts` for comprehensive usage examples including:
 src/services/exnestai/
 ├── wrapper.services.ts     # Simple wrapper service
 ├── client.services.ts      # Advanced client service
+├── examples.ts            # Usage examples
 ├── index.ts              # Main export file
 └── README.md            # This documentation
 ```
-

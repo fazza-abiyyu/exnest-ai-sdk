@@ -1,11 +1,8 @@
-"use strict";
 /**
  * ExnestAI Client Service
  * Advanced client with full configuration options, error handling, and retry logic
  */
-Object.defineProperty(exports, "__esModule", { value: true });
-exports.ExnestAI = void 0;
-class ExnestAI {
+export class ExnestAI {
     constructor({ apiKey, baseUrl = process.env.EXNEST_API_URL || "https://api.exnest.app/v1", timeout = 30000, retries = 3, retryDelay = 1000, debug = false }) {
         this.apiKey = apiKey;
         this.baseUrl = baseUrl;
@@ -38,8 +35,42 @@ class ExnestAI {
         if (options.maxTokens !== undefined) {
             requestBody.max_tokens = options.maxTokens;
         }
+        if (options.openaiCompatible !== undefined) {
+            requestBody.openai_compatible = options.openaiCompatible;
+        }
+        if (options.stream !== undefined) {
+            requestBody.stream = options.stream;
+        }
         const requestTimeout = options.timeout || this.timeout;
         return this.executeRequest("/completions", requestBody, requestTimeout);
+    }
+    /**
+     * Stream chat completion responses
+     * @param model - Model identifier
+     * @param messages - Array of chat messages
+     * @param options - Chat options
+     * @returns AsyncGenerator<ExnestStreamChunk>
+     */
+    async *stream(model, messages, options = {}) {
+        this.validateInputs(model, messages);
+        const requestBody = {
+            model,
+            messages,
+            api_key: this.apiKey,
+            stream: true,
+        };
+        // Add optional parameters
+        if (options.temperature !== undefined) {
+            requestBody.temperature = options.temperature;
+        }
+        if (options.maxTokens !== undefined) {
+            requestBody.max_tokens = options.maxTokens;
+        }
+        if (options.openaiCompatible !== undefined) {
+            requestBody.openai_compatible = options.openaiCompatible;
+        }
+        const requestTimeout = options.timeout || this.timeout;
+        yield* this.executeStreamRequest("/completions", requestBody, requestTimeout);
     }
     /**
      * Simple response method for single-turn conversations
@@ -55,10 +86,54 @@ class ExnestAI {
         return this.chat(model, [{ role: "user", content: input }], { maxTokens });
     }
     /**
+     * Get all available models
+     * @param options - Options for the request
+     * @returns Promise<ExnestResponse>
+     */
+    async getModels(options = {}) {
+        const queryParams = new URLSearchParams();
+        if (options.openaiCompatible) {
+            queryParams.append('openai_compatible', 'true');
+        }
+        const endpoint = `/models${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+        const requestTimeout = options.timeout || this.timeout;
+        return this.executeRequest(endpoint, null, requestTimeout, 'GET');
+    }
+    /**
+     * Get a specific model by name
+     * @param modelName - Name of the model to retrieve
+     * @param options - Options for the request
+     * @returns Promise<ExnestResponse>
+     */
+    async getModel(modelName, options = {}) {
+        const queryParams = new URLSearchParams();
+        if (options.openaiCompatible) {
+            queryParams.append('openai_compatible', 'true');
+        }
+        const endpoint = `/models/${modelName}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+        const requestTimeout = options.timeout || this.timeout;
+        return this.executeRequest(endpoint, null, requestTimeout, 'GET');
+    }
+    /**
+     * Get models by provider
+     * @param provider - Provider name
+     * @param options - Options for the request
+     * @returns Promise<ExnestResponse>
+     */
+    async getModelsByProvider(provider, options = {}) {
+        const queryParams = new URLSearchParams();
+        if (options.openaiCompatible) {
+            queryParams.append('openai_compatible', 'true');
+        }
+        const endpoint = `/models/provider/${provider}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+        const requestTimeout = options.timeout || this.timeout;
+        return this.executeRequest(endpoint, null, requestTimeout, 'GET');
+    }
+    /**
      * Execute HTTP request with retry logic
      * @private
      */
-    async executeRequest(endpoint, body, timeout) {
+    async executeRequest(endpoint, body, timeout, method = 'POST') {
         let lastError = null;
         for (let attempt = 0; attempt <= this.retries; attempt++) {
             try {
@@ -67,15 +142,22 @@ class ExnestAI {
                 }
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), timeout);
-                const response = await fetch(`${this.baseUrl}${endpoint}`, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "User-Agent": "ExnestAI-Client/1.0.0",
-                    },
-                    body: JSON.stringify(body),
+                const headers = {
+                    "Content-Type": "application/json",
+                    "User-Agent": "ExnestAI-Client/1.0.0",
+                };
+                // Add API key to Authorization header for better compatibility
+                headers["Authorization"] = `Bearer ${this.apiKey}`;
+                const fetchOptions = {
+                    method,
+                    headers,
                     signal: controller.signal,
-                });
+                };
+                // Add body for POST requests
+                if (method === 'POST' && body) {
+                    fetchOptions.body = JSON.stringify(body);
+                }
+                const response = await fetch(`${this.baseUrl}${endpoint}`, fetchOptions);
                 clearTimeout(timeoutId);
                 const result = await response.json();
                 if (this.debug) {
@@ -99,6 +181,89 @@ class ExnestAI {
         }
         // If all retries failed, return a formatted error response
         return this.createErrorResponse(lastError);
+    }
+    /**
+     * Execute streaming HTTP request
+     * @private
+     */
+    async *executeStreamRequest(endpoint, body, timeout) {
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), timeout);
+            const headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "ExnestAI-Client/1.0.0",
+                "Accept": "text/event-stream",
+            };
+            // Add API key to Authorization header for better compatibility
+            headers["Authorization"] = `Bearer ${this.apiKey}`;
+            const response = await fetch(`${this.baseUrl}${endpoint}`, {
+                method: "POST",
+                headers,
+                body: JSON.stringify(body),
+                signal: controller.signal,
+            });
+            clearTimeout(timeoutId);
+            if (!response.body) {
+                throw new Error("Response body is null");
+            }
+            if (!response.headers.get("content-type")?.includes("text/event-stream")) {
+                // Handle non-streaming response (likely an error)
+                const result = await response.json();
+                throw new Error(result.message || "Streaming request failed");
+            }
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            try {
+                let buffer = "";
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done)
+                        break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() || "";
+                    for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                            const data = line.slice(6);
+                            if (data === "[DONE]") {
+                                return;
+                            }
+                            try {
+                                const chunk = JSON.parse(data);
+                                yield chunk;
+                            }
+                            catch (parseError) {
+                                if (this.debug) {
+                                    console.error("[ExnestAI] Failed to parse stream chunk:", parseError);
+                                }
+                            }
+                        }
+                    }
+                }
+                // Process any remaining data in the buffer
+                if (buffer.startsWith("data: ")) {
+                    const data = buffer.slice(6);
+                    if (data !== "[DONE]") {
+                        try {
+                            const chunk = JSON.parse(data);
+                            yield chunk;
+                        }
+                        catch (parseError) {
+                            if (this.debug) {
+                                console.error("[ExnestAI] Failed to parse final stream chunk:", parseError);
+                            }
+                        }
+                    }
+                }
+            }
+            finally {
+                reader.releaseLock();
+            }
+        }
+        catch (error) {
+            throw new Error(`Streaming failed: ${error.message}`);
+        }
     }
     /**
      * Create standardized error response
@@ -215,5 +380,4 @@ class ExnestAI {
         };
     }
 }
-exports.ExnestAI = ExnestAI;
 //# sourceMappingURL=client.services.js.map

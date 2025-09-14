@@ -4,17 +4,20 @@
 [![npm downloads](https://img.shields.io/npm/dm/@exnest-dev/ai)](https://www.npmjs.com/package/@exnest-dev/ai)
 [![License](https://img.shields.io/npm/l/@exnest-dev/ai)](LICENSE)
 
-The official Node.js SDK for Exnest AI - A unified API for multiple AI models including OpenAI, Google Gemini, Moonshot, and more.
+The official Node.js SDK for Exnest AI - A unified API for multiple AI models including OpenAI, Google Gemini, Anthropic Claude, and more.
 
 ## Features
 
 - **Unified API**: Access multiple AI providers through a single API
-- **TypeScript Support**: Full TypeScript definitions included
+- **Full TypeScript Support**: Complete TypeScript definitions included
 - **Flexible Authentication**: Support for both API key in request body and Authorization header
-- **Retry Logic**: Built-in retry mechanism with exponential backoff
-- **Error Handling**: Comprehensive error handling and standardized responses
+- **Built-in Retry Logic**: Automatic retry mechanism with exponential backoff
+- **Comprehensive Error Handling**: Standardized error responses and handling
+- **Streaming Support**: Real-time response streaming capabilities
+- **Model Management**: List and retrieve information about available models
 - **Configuration Options**: Customizable timeout, retries, and other options
 - **n8n Compatible**: Works seamlessly with n8n and other tools using Bearer token authentication
+- **Universal Connector**: Works with both Exnest API keys and official provider API keys
 
 ## Installation
 
@@ -34,6 +37,7 @@ const exnest = new ExnestAI({
   baseUrl: 'https://api.exnest.app/v1', // Optional, uses default if not provided
   timeout: 30000, // Optional
   retries: 3, // Optional
+  retryDelay: 1000, // Optional
   debug: true // Optional
 });
 
@@ -53,8 +57,40 @@ import { ExnestWrapper } from '@exnest-dev/ai';
 const exnest = new ExnestWrapper('your-api-key');
 
 // Simple response
-const response = await exnest.response('gemini-2.5-flash', 'What is TypeScript?');
+const response = await exnest.response('claude-3-haiku', 'What is TypeScript?');
 console.log(response.data.choices[0].message.content);
+```
+
+## Universal Connector
+
+Exnest supports both Exnest API keys (prefixed with `ex-sk`) and official provider API keys through the Universal Connector feature. This allows you to:
+
+1. Use your existing API keys from providers like OpenAI, Anthropic, etc.
+2. Still benefit from Exnest's unified API interface
+3. Optionally use Exnest's billing and management features when using Exnest API keys
+
+### Using Exnest API Keys (with billing)
+
+```javascript
+const exnest = new ExnestAI({
+  apiKey: 'ex-sk-your-exnest-api-key'
+});
+
+const response = await exnest.chat('gpt-4.1-mini', [
+  { role: 'user', content: 'Hello!' }
+]);
+```
+
+### Using Official Provider API Keys (without billing)
+
+```javascript
+const exnest = new ExnestAI({
+  apiKey: 'sk-your-openai-api-key'
+});
+
+const response = await exnest.chat('gpt-4.1-mini', [
+  { role: 'user', content: 'Hello!' }
+]);
 ```
 
 ## API Reference
@@ -89,14 +125,41 @@ const response = await exnest.chat(
 );
 ```
 
+### Streaming Responses
+
+```typescript
+// Streaming chat completion
+for await (const chunk of exnest.stream('gpt-4.1-mini', [
+  { role: 'user', content: 'Write a story about a robot learning to love' }
+])) {
+  process.stdout.write(chunk.choices[0].delta.content || '');
+}
+```
+
 ### Simple Response
 
 ```typescript
 const response = await exnest.responses(
-  'gemini-2.5-flash', // Model identifier
-  'What is TypeScript?',         // User input
-  200                            // Optional max tokens
+  'claude-3-haiku', // Model identifier
+  'What is TypeScript?',      // User input
+  200                         // Optional max tokens
 );
+```
+
+## Model Management
+
+### List All Available Models
+
+```typescript
+const models = await exnest.getModels();
+console.log(models.data);
+```
+
+### Get Specific Model Information
+
+```typescript
+const model = await exnest.getModel('gpt-4.1-mini');
+console.log(model.data);
 ```
 
 ## Authentication
@@ -120,8 +183,9 @@ This makes the SDK fully compatible with n8n and other tools that use standard B
 ## Supported Models
 
 Currently available models:
-- **OpenAI**: `gpt-4.1-mini`
-- **Google**: `gemini-2.5-flash`
+- **OpenAI**: `gpt-4.1-mini`, `gpt-3.5-turbo`
+- **Anthropic**: `claude-3-haiku`, `claude-3-sonnet`, `claude-3-opus`
+- **Google**: `gemini-2.5-flash`, `gemini-1.5-pro`
 - **Moonshot**: `moonshot-v1-8k`, `moonshot-v1-32k`, `moonshot-v1-128k`
 
 More models will be added in the future.
