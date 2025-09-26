@@ -119,8 +119,7 @@ const response = await exnest.chat(
   ],
   {
     temperature: 0.7,    // Optional
-    maxTokens: 500,      // Optional
-    timeout: 15000       // Optional, overrides client timeout
+    max_tokens: 500,      // Optional
   }
 );
 ```
