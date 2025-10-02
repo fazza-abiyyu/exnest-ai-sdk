@@ -11,14 +11,21 @@ export async function exampleSimpleWrapper() {
     const exnest = new SimpleExnestAI("your-api-key-here");
     
     try {
-        // Simple chat
-        const response = await exnest.chat("openai:gpt-4o-mini", [
+        // Text completion with single prompt
+        const completionResponse = await exnest.completion(
+            "openai:gpt-4o-mini",
+            "What is the capital of France?",
+            500 // maxTokens
+        );
+        console.log("Completion response:", completionResponse.choices?.[0]?.text);
+        
+        // Chat completion with messages
+        const chatResponse = await exnest.chat("openai:gpt-4o-mini", [
             { role: "user", content: "Hello, how are you?" }
         ]);
+        console.log("Chat response:", chatResponse.choices?.[0]?.message?.content);
         
-        console.log("Simple wrapper response:", response);
-        
-        // Simple response method
+        // Simple response method (legacy)
         const quickResponse = await exnest.response("google:gemini-2.0-flash-exp", "What is TypeScript?");
         console.log("Quick response:", quickResponse);
         
@@ -42,8 +49,24 @@ export async function exampleAdvancedClient() {
     });
     
     try {
+        // Text completion with options
+        const completionResponse = await exnest.completion(
+            "openai:gpt-4o-mini",
+            "Explain the concept of closures in JavaScript",
+            {
+                temperature: 0.7,
+                maxTokens: 500,
+                timeout: 15000,
+                exnestMetadata: true  // Enable billing metadata
+            }
+        );
+        console.log("Completion:", completionResponse.choices?.[0]?.text);
+        if (completionResponse.exnest?.billing) {
+            console.log("Billing info:", completionResponse.exnest.billing);
+        }
+        
         // Advanced chat with options
-        const response = await exnest.chat(
+        const chatResponse = await exnest.chat(
             "google:gemini-2.0-flash-exp",
             [
                 { role: "system", content: "You are a helpful programming assistant." },
@@ -52,11 +75,11 @@ export async function exampleAdvancedClient() {
             {
                 temperature: 0.7,
                 maxTokens: 500,
-                timeout: 15000
+                timeout: 15000,
+                exnestMetadata: true  // Enable billing metadata
             }
         );
-        
-        console.log("Advanced client response:", response);
+        console.log("Chat response:", chatResponse.choices?.[0]?.message?.content);
         
         // Health check
         const health = await exnest.healthCheck();
@@ -66,9 +89,9 @@ export async function exampleAdvancedClient() {
         const config = exnest.getConfig();
         console.log("Client config:", config);
         
-        // Get models with OpenAI compatibility
-        const models = await exnest.getModels({ openaiCompatible: true });
-        console.log("OpenAI-compatible models:", models);
+        // Get all models (OpenAI-compatible by default)
+        const models = await exnest.getModels();
+        console.log("Available models:", models);
         
     } catch (error) {
         console.error("Advanced client error:", error);
@@ -83,19 +106,33 @@ export async function exampleStreaming() {
     });
     
     try {
-        console.log("Starting streaming response...");
+        console.log("Starting text completion streaming...");
         
-        // Stream response
-        for await (const chunk of exnest.stream(
+        // Stream text completion (single prompt)
+        for await (const chunk of exnest.streamCompletion(
             "openai:gpt-4o-mini",
-            [
-                { role: "user", content: "Write a short story about a robot learning to paint." }
-            ],
+            "Write a short story about a robot learning to paint.",
             {
                 maxTokens: 300
             }
         )) {
-            // Print each chunk as it arrives
+            if (chunk.choices[0]?.delta?.content) {
+                process.stdout.write(chunk.choices[0].delta.content);
+            }
+        }
+        
+        console.log("\n\nStarting chat completion streaming...");
+        
+        // Stream chat completion (messages array)
+        for await (const chunk of exnest.stream(
+            "openai:gpt-4o-mini",
+            [
+                { role: "user", content: "Write a poem about the ocean." }
+            ],
+            {
+                maxTokens: 200
+            }
+        )) {
             if (chunk.choices[0]?.delta?.content) {
                 process.stdout.write(chunk.choices[0].delta.content);
             }
@@ -117,10 +154,19 @@ export async function exampleErrorHandling() {
     });
     
     try {
-        const response = await exnest.responses("openai:gpt-4o-mini", "Test message");
+        const response = await exnest.chat(
+            "openai:gpt-4o-mini",
+            [{ role: "user", content: "Test message" }]
+        );
         
-        if (!response.success) {
+        // Check for OpenAI-compatible error format
+        if (response.error) {
             console.log("Expected error response:", response.error);
+            if (response.error.exnest?.transaction_refunded) {
+                console.log("Transaction was refunded");
+            }
+        } else {
+            console.log("Response:", response.choices?.[0]?.message?.content);
         }
         
     } catch (error) {
@@ -190,19 +236,22 @@ export async function integrateWithController(apiKey: string, model: string, mes
     try {
         const result = await exnest.chat(model, messages, {
             temperature: 0.7,
-            maxTokens: 2048
+            maxTokens: 2048,
+            exnestMetadata: true  // Get billing info
         });
         
-        if (result.success && result.data) {
-            return {
-                success: true,
-                content: result.data.choices[0]?.message?.content || "",
-                usage: result.data.usage,
-                model: result.data.model
-            };
-        } else {
-            throw new Error(result.message || "API request failed");
+        // OpenAI-compatible response format
+        if (result.error) {
+            throw new Error(result.error.message || "API request failed");
         }
+        
+        return {
+            success: true,
+            content: result.choices?.[0]?.message?.content || "",
+            usage: result.usage,
+            model: result.model,
+            billing: result.exnest?.billing  // Optional billing metadata
+        };
         
     } catch (error: any) {
         throw new Error(`Chat completion failed: ${error.message}`);

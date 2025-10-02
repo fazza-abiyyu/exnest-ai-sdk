@@ -7,29 +7,50 @@ export interface ExnestMessage {
     content: string;
 }
 export interface ExnestResponse {
-    success: boolean;
-    status_code: number;
-    message: string;
-    data?: {
-        model: string;
-        choices: Array<{
-            message: {
-                role: string;
-                content: string;
-            };
-        }>;
-        usage: {
-            prompt_tokens: number;
-            completion_tokens: number;
-            total_tokens: number;
+    id?: string;
+    object?: string;
+    created?: number;
+    model?: string;
+    choices?: Array<{
+        index?: number;
+        message?: {
+            role: string;
+            content: string;
         };
+        text?: string;
+        finish_reason?: string;
+    }>;
+    usage?: {
+        prompt_tokens: number;
+        completion_tokens: number;
+        total_tokens: number;
     };
-    error?: any;
-    meta?: {
-        timestamp: string;
-        request_id: string;
-        version: string;
-        execution_time: string;
+    exnest?: {
+        billing?: {
+            transaction_id: string;
+            actual_cost_usd: string;
+            estimated_cost_usd: string;
+            refund_amount_usd: string;
+            wallet_currency: string;
+            deducted_amount: string;
+            exchange_rate: string | null;
+        };
+        links?: {
+            transaction: string;
+            apiKey: string;
+        };
+        processing_time_ms?: number;
+    };
+    error?: {
+        message: string;
+        type: string;
+        code: string;
+        exnest?: {
+            transaction_refunded?: boolean;
+            processing_time_ms?: number;
+            original_error?: string;
+            details?: string;
+        };
     };
 }
 export interface ExnestStreamChunk {
@@ -51,6 +72,14 @@ export declare class ExnestAI {
     private baseUrl;
     constructor(apiKey: string, baseUrl?: string);
     /**
+     * Simple completion method with single prompt
+     * @param model - Model identifier (e.g., "openai:gpt-4", "anthropic:claude-3")
+     * @param prompt - Single prompt string
+     * @param maxTokens - Optional maximum tokens to generate
+     * @returns Promise<ExnestResponse>
+     */
+    completion(model: string, prompt: string, maxTokens?: number): Promise<ExnestResponse>;
+    /**
      * Simple chat completion method
      * @param model - Model identifier (e.g., "openai:gpt-4", "anthropic:claude-3")
      * @param messages - Array of chat messages
@@ -58,6 +87,14 @@ export declare class ExnestAI {
      * @returns Promise<ExnestResponse>
      */
     chat(model: string, messages: ExnestMessage[], maxTokens?: number): Promise<ExnestResponse>;
+    /**
+     * Stream completion with single prompt
+     * @param model - Model identifier
+     * @param prompt - Single prompt string
+     * @param maxTokens - Optional maximum tokens to generate
+     * @returns AsyncGenerator<ExnestStreamChunk>
+     */
+    streamCompletion(model: string, prompt: string, maxTokens?: number): AsyncGenerator<ExnestStreamChunk, void, unknown>;
     /**
      * Stream chat completion responses
      * @param model - Model identifier

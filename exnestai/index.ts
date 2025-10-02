@@ -16,7 +16,10 @@ export type {
 
 export type { 
     ExnestClientOptions, 
-    ExnestChatOptions, 
+    ExnestChatOptions,
+    ExnestBaseResponse,
+    ExnestChatResponse,
+    ExnestCompletionResponse,
     ExnestResponse as ExnestClientResponse,
     ExnestErrorResponse,
     ExnestStreamChunk as ExnestClientStreamChunk,

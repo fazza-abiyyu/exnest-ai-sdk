@@ -1,6 +1,6 @@
 # ExnestAI Client Services
 
-This directory contains the client services for interacting with the ExnestAI API. It provides two main implementations:
+This directory contains the client services for interacting with the ExnestAI API. It provides two main implementations with **OpenAI-compatible response format** by default.
 
 ## Services Overview
 
@@ -12,17 +12,35 @@ import { ExnestAI } from './wrapper.services';
 
 const exnest = new ExnestAI("your-api-key", process.env.EXNEST_API_URL || "https://api.exnest.app/v1");
 
-// Simple chat
-const response = await exnest.chat("openai:gpt-4o-mini", [
+// Text completion with single prompt
+const completionResponse = await exnest.completion(
+  "openai:gpt-4o-mini",
+  "What is the capital of France?",
+  500 // maxTokens
+);
+
+// Chat completion with messages array
+const chatResponse = await exnest.chat("openai:gpt-4o-mini", [
   { role: "user", content: "Hello, how are you?" }
 ]);
 
-// Quick response
+// Quick response (legacy method)
 const result = await exnest.response("google:gemini-2.0-flash-exp", "What is TypeScript?", 200);
 
-// Streaming response
+// Streaming text completion
+for await (const chunk of exnest.streamCompletion(
+  "openai:gpt-4o-mini",
+  "Tell me a story",
+  500 // maxTokens
+)) {
+  if (chunk.choices[0]?.delta?.content) {
+    process.stdout.write(chunk.choices[0].delta.content);
+  }
+}
+
+// Streaming chat completion
 for await (const chunk of exnest.stream("openai:gpt-4o-mini", [
-  { role: "user", content: "Tell me a story" }
+  { role: "user", content: "Count to 100" }
 ])) {
   if (chunk.choices[0]?.delta?.content) {
     process.stdout.write(chunk.choices[0].delta.content);
@@ -47,8 +65,21 @@ const exnest = new ExnestAI({
   debug: true
 });
 
-// Advanced chat with options
-const response = await exnest.chat(
+// Text completion with single prompt (uses /v1/completions endpoint)
+const completionResponse = await exnest.completion(
+  "openai:gpt-4o-mini",
+  "What is the capital of France?",
+  {
+    temperature: 0.7,
+    maxTokens: 500,
+    timeout: 15000,
+    exnestMetadata: true  // Enable Exnest billing metadata
+  }
+);
+// Returns: { object: "text_completion", choices: [{ text: "...", ... }], ... }
+
+// Chat completion with messages array (uses /v1/chat/completions endpoint)
+const chatResponse = await exnest.chat(
   "google:gemini-2.0-flash-exp",
   [
     { role: "system", content: "You are a helpful assistant." },
@@ -58,11 +89,23 @@ const response = await exnest.chat(
     temperature: 0.7,
     maxTokens: 500,
     timeout: 15000,
-    openaiCompatible: true
+    exnestMetadata: true  // Enable Exnest billing metadata
   }
 );
+// Returns: { object: "chat.completion", choices: [{ message: {...}, ... }], ... }
 
-// Streaming response with options
+// Streaming text completion with single prompt
+for await (const chunk of exnest.streamCompletion(
+  "openai:gpt-4o-mini",
+  "Write a short story about a robot",
+  { maxTokens: 300 }
+)) {
+  if (chunk.choices[0]?.delta?.content) {
+    process.stdout.write(chunk.choices[0].delta.content);
+  }
+}
+
+// Streaming chat completion with messages array
 for await (const chunk of exnest.stream(
   "openai:gpt-4o-mini",
   [{ role: "user", content: "Write a poem" }],
@@ -73,8 +116,8 @@ for await (const chunk of exnest.stream(
   }
 }
 
-// Get models with options
-const models = await exnest.getModels({ openaiCompatible: true });
+// Get all models
+const models = await exnest.getModels();
 ```
 
 ## API Reference
@@ -87,34 +130,86 @@ interface ExnestMessage {
 }
 ```
 
-### ExnestResponse Interface
+### Response Type System (OpenAI Compatible)
+
+All responses follow OpenAI's format with optional Exnest metadata.
+
+#### Base Response Interface
 ```typescript
-interface ExnestResponse {
-  success: boolean;
-  status_code: number;
-  message: string;
-  data?: {
-    model: string;
-    choices: Array<{
-      message: {
-        role: string;
-        content: string;
-      };
-    }>;
-    usage: {
-      prompt_tokens: number;
-      completion_tokens: number;
-      total_tokens: number;
+interface ExnestBaseResponse {
+  id?: string;
+  object?: string;  // "chat.completion" or "text_completion"
+  created?: number;
+  model?: string;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  
+  // Exnest-specific metadata (when exnestMetadata=true)
+  exnest?: {
+    billing?: {
+      transaction_id: string;
+      actual_cost_usd: string;
+      estimated_cost_usd: string;
+      refund_amount_usd: string;
+      wallet_currency: string;
+      deducted_amount: string;
+      exchange_rate: string | null;
+    };
+    links?: {
+      transaction: string;
+      apiKey: string;
+    };
+    processing_time_ms?: number;
+  };
+  
+  // Error fields (OpenAI compatible)
+  error?: {
+    message: string;
+    type: string;
+    code: string;
+    exnest?: {
+      transaction_refunded?: boolean;
+      processing_time_ms?: number;
+      original_error?: string;
+      details?: string;
     };
   };
-  error?: any;
-  meta?: {
-    timestamp: string;
-    request_id: string;
-    version: string;
-    execution_time: string;
-  };
 }
+```
+
+#### Chat Completion Response (from /v1/chat/completions)
+```typescript
+interface ExnestChatResponse extends ExnestBaseResponse {
+  object?: "chat.completion";
+  choices?: Array<{
+    index?: number;
+    message?: {
+      role: string;
+      content: string;
+    };
+    finish_reason?: string;
+  }>;
+}
+```
+
+#### Text Completion Response (from /v1/completions)
+```typescript
+interface ExnestCompletionResponse extends ExnestBaseResponse {
+  object?: "text_completion";
+  choices?: Array<{
+    index?: number;
+    text?: string;
+    finish_reason?: string;
+  }>;
+}
+```
+
+#### Union Type for Any Response
+```typescript
+type ExnestResponse = ExnestChatResponse | ExnestCompletionResponse;
 ```
 
 ### ExnestStreamChunk Interface
@@ -135,6 +230,28 @@ interface ExnestStreamChunk {
 }
 ```
 
+## API Endpoints
+
+The ExnestAI service provides two distinct endpoints for different use cases:
+
+### `/v1/completions` - Text Completion
+- **Input**: Single `prompt` string
+- **Output**: `{ object: "text_completion", choices: [{ text: "..." }] }`
+- **Use case**: Simple text generation, single prompt/response
+- **Methods**: `completion()`, `streamCompletion()`
+
+### `/v1/chat/completions` - Chat Completion
+- **Input**: Array of `messages` with roles
+- **Output**: `{ object: "chat.completion", choices: [{ message: {...} }] }`
+- **Use case**: Conversational AI, multi-turn dialogue
+- **Methods**: `chat()`, `stream()`
+
+Both endpoints:
+- Return OpenAI-compatible format by default
+- Support optional `exnest_metadata=true` for billing info
+- Support streaming with Server-Sent Events (SSE)
+- Support timeout configuration
+
 ## Currently Available Models
 
 The services currently support the following AI models:
@@ -149,6 +266,8 @@ The services currently support the following AI models:
 The API supports two authentication methods:
 
 ### Method 1: Request Body (Default)
+
+**For Chat Completion (messages array):**
 ```json
 {
   "model": "openai:gpt-4o-mini",
@@ -159,9 +278,20 @@ The API supports two authentication methods:
 }
 ```
 
+**For Text Completion (single prompt):**
+```json
+{
+  "model": "openai:gpt-4o-mini",
+  "prompt": "What is the capital of France?",
+  "api_key": "your-api-key-here"
+}
+```
+
 ### Method 2: Authorization Bearer Header (n8n Compatible)
+
+**For Chat Completion:**
 ```bash
-curl -X POST "https://api.exnest.app/v1/completions" \
+curl -X POST "https://api.exnest.app/v1/chat/completions" \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer your-api-key-here" \
   -d '{
@@ -169,6 +299,17 @@ curl -X POST "https://api.exnest.app/v1/completions" \
     "messages": [
       {"role": "user", "content": "Hello, how are you?"}
     ]
+  }'
+```
+
+**For Text Completion:**
+```bash
+curl -X POST "https://api.exnest.app/v1/completions" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer your-api-key-here" \
+  -d '{
+    "model": "openai:gpt-4o-mini",
+    "prompt": "What is the capital of France?"
   }'
 ```
 
@@ -189,8 +330,19 @@ The advanced client provides comprehensive error handling with automatic retries
 try {
   const response = await exnest.chat(model, messages);
   
-  if (!response.success) {
-    console.error('API Error:', response.error);
+  // OpenAI compatible error format
+  if (response.error) {
+    console.error('API Error:', response.error.message);
+    console.error('Error Type:', response.error.type);
+    console.error('Error Code:', response.error.code);
+    
+    // Check for Exnest-specific error details
+    if (response.error.exnest) {
+      console.error('Details:', response.error.exnest.details);
+    }
+  } else {
+    // Success - use choices
+    console.log(response.choices?.[0]?.message?.content);
   }
 } catch (error) {
   console.error('Network Error:', error);
@@ -217,7 +369,7 @@ interface ExnestChatOptions {
   temperature?: number;     // Optional: Model temperature (0-2)
   maxTokens?: number;       // Optional: Maximum tokens to generate
   timeout?: number;         // Optional: Request-specific timeout
-  openaiCompatible?: boolean; // Optional: Return OpenAI-compatible format
+  exnestMetadata?: boolean; // Optional: Include Exnest billing/transaction metadata
   stream?: boolean;         // Optional: Enable streaming response
 }
 ```
@@ -230,20 +382,44 @@ The SDK also provides access to the models API:
 // Get all models
 const allModels = await exnest.getModels();
 
-// Get models with OpenAI-compatible format
-const openaiModels = await exnest.getModels({ openaiCompatible: true });
-
 // Get models by provider
 const providerModels = await exnest.getModelsByProvider("openai");
 
 // Get a specific model
 const model = await exnest.getModel("gpt-4o-mini");
+
+// Note: All model responses are OpenAI-compatible by default
 ```
 
 ## Streaming Responses
 
-The SDK supports streaming responses for real-time output:
+The SDK supports streaming responses for real-time output with two methods:
 
+### Stream Text Completion (single prompt)
+```typescript
+// Using the advanced client
+for await (const chunk of exnest.streamCompletion(
+  "openai:gpt-4o-mini",
+  "Write a short story about a robot"
+)) {
+  if (chunk.choices[0]?.delta?.content) {
+    process.stdout.write(chunk.choices[0].delta.content);
+  }
+}
+
+// Using the simple wrapper
+for await (const chunk of exnest.streamCompletion(
+  "openai:gpt-4o-mini",
+  "Count to 100",
+  200 // maxTokens
+)) {
+  if (chunk.choices[0]?.delta?.content) {
+    process.stdout.write(chunk.choices[0].delta.content);
+  }
+}
+```
+
+### Stream Chat Completion (messages array)
 ```typescript
 // Using the advanced client
 for await (const chunk of exnest.stream(
@@ -258,7 +434,7 @@ for await (const chunk of exnest.stream(
 // Using the simple wrapper
 for await (const chunk of exnest.stream(
   "openai:gpt-4o-mini",
-  [{ role: "user", content: "Count to 100" }],
+  [{ role: "user", content: "Write a poem" }],
   200 // maxTokens
 )) {
   if (chunk.choices[0]?.delta?.content) {

@@ -5,7 +5,7 @@
 export { ExnestAI as ExnestWrapper } from "./wrapper.services";
 export { ExnestAI as ExnestClient } from "./client.services";
 export type { ExnestMessage, ExnestResponse, ExnestStreamChunk } from "./wrapper.services";
-export type { ExnestClientOptions, ExnestChatOptions, ExnestResponse as ExnestClientResponse, ExnestErrorResponse, ExnestStreamChunk as ExnestClientStreamChunk, ExnestModel } from "./client.services";
+export type { ExnestClientOptions, ExnestChatOptions, ExnestBaseResponse, ExnestChatResponse, ExnestCompletionResponse, ExnestResponse as ExnestClientResponse, ExnestErrorResponse, ExnestStreamChunk as ExnestClientStreamChunk, ExnestModel } from "./client.services";
 export { exampleSimpleWrapper, exampleAdvancedClient, exampleStreaming, exampleErrorHandling, exampleConfigUpdates, exampleModelOperations, integrateWithController, SimpleExnestAI, AdvancedExnestAI } from "./examples";
 /**
  * Default export: Advanced client for most use cases

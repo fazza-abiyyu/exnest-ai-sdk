@@ -18,36 +18,67 @@ export interface ExnestChatOptions {
     temperature?: number;
     maxTokens?: number;
     timeout?: number;
-    openaiCompatible?: boolean;
+    exnestMetadata?: boolean;
     stream?: boolean;
 }
-export interface ExnestResponse {
-    success: boolean;
-    status_code: number;
-    message: string;
-    data?: {
-        model: string;
-        choices: Array<{
-            message: {
-                role: string;
-                content: string;
-            };
-        }>;
-        usage: {
-            prompt_tokens: number;
-            completion_tokens: number;
-            total_tokens: number;
+export interface ExnestBaseResponse {
+    id?: string;
+    object?: string;
+    created?: number;
+    model?: string;
+    usage?: {
+        prompt_tokens: number;
+        completion_tokens: number;
+        total_tokens: number;
+    };
+    exnest?: {
+        billing?: {
+            transaction_id: string;
+            actual_cost_usd: string;
+            estimated_cost_usd: string;
+            refund_amount_usd: string;
+            wallet_currency: string;
+            deducted_amount: string;
+            exchange_rate: string | null;
+        };
+        links?: {
+            transaction: string;
+            apiKey: string;
+        };
+        processing_time_ms?: number;
+    };
+    error?: {
+        message: string;
+        type: string;
+        code: string;
+        exnest?: {
+            transaction_refunded?: boolean;
+            processing_time_ms?: number;
+            original_error?: string;
+            details?: string;
         };
     };
-    error?: any;
-    meta?: {
-        timestamp: string;
-        request_id: string;
-        version: string;
-        execution_time: string;
-        execution_time_ms?: number;
-    };
 }
+export interface ExnestChatResponse extends ExnestBaseResponse {
+    object?: "chat.completion";
+    choices?: Array<{
+        index?: number;
+        message?: {
+            role: string;
+            content: string;
+        };
+        finish_reason?: string;
+    }>;
+}
+export interface ExnestCompletionResponse extends ExnestBaseResponse {
+    object?: "text_completion";
+    choices?: Array<{
+        index?: number;
+        text?: string;
+        finish_reason?: string;
+    }>;
+}
+export type ExnestResponse = ExnestChatResponse | ExnestCompletionResponse;
 export interface ExnestStreamChunk {
     id: string;
     object: string;
@@ -62,17 +93,19 @@ export interface ExnestStreamChunk {
         finish_reason: string | null;
     }>;
 }
-export interface ExnestErrorResponse {
-    success: false;
-    status_code: number;
-    message: string;
+export type ExnestErrorResponse = ExnestBaseResponse & {
     error: {
-        details: string;
-        code?: string;
-        type?: string;
+        message: string;
+        type: string;
+        code: string;
+        exnest?: {
+            transaction_refunded?: boolean;
+            processing_time_ms?: number;
+            original_error?: string;
+            details?: string;
+        };
     };
-    requestId?: string;
-}
+};
 export interface ExnestModel {
     id: string;
     name: string;
@@ -105,13 +138,29 @@ export declare class ExnestAI {
     private debug;
     constructor({ apiKey, baseUrl, timeout, retries, retryDelay, debug }: ExnestClientOptions);
     /**
+     * Simple text completion with single prompt
+     * @param model - Model identifier (e.g., "gpt-4.1-mini", "anthropic:claude-3")
+     * @param prompt - Single prompt string
+     * @param options - Completion options (temperature, maxTokens, timeout)
+     * @returns Promise<ExnestCompletionResponse>
+     */
+    completion(model: string, prompt: string, options?: ExnestChatOptions): Promise<ExnestCompletionResponse>;
+    /**
      * Advanced chat completion with full options
-     * @param model - Model identifier (e.g., "openai:gpt-4", "anthropic:claude-3")
+     * @param model - Model identifier (e.g., "gpt-4.1-mini", "anthropic:claude-3")
      * @param messages - Array of chat messages
      * @param options - Chat options (temperature, maxTokens, timeout)
-     * @returns Promise<ExnestResponse>
+     * @returns Promise<ExnestChatResponse>
      */
-    chat(model: string, messages: ExnestMessage[], options?: ExnestChatOptions): Promise<ExnestResponse>;
+    chat(model: string, messages: ExnestMessage[], options?: ExnestChatOptions): Promise<ExnestChatResponse>;
+    /**
+     * Stream text completion with single prompt
+     * @param model - Model identifier
+     * @param prompt - Single prompt string
+     * @param options - Completion options
+     * @returns AsyncGenerator<ExnestStreamChunk>
+     */
+    streamCompletion(model: string, prompt: string, options?: ExnestChatOptions): AsyncGenerator<ExnestStreamChunk, void, unknown>;
     /**
      * Stream chat completion responses
      * @param model - Model identifier
@@ -125,9 +174,9 @@ export declare class ExnestAI {
      * @param model - Model identifier
      * @param input - User input string
      * @param maxTokens - Optional maximum tokens to generate
-     * @returns Promise<ExnestResponse>
+     * @returns Promise<ExnestChatResponse>
      */
-    responses(model: string, input: string, maxTokens?: number): Promise<ExnestResponse>;
+    responses(model: string, input: string, maxTokens?: number): Promise<ExnestChatResponse>;
     /**
      * Get all available models
      * @param options - Options for the request

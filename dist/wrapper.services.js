@@ -8,17 +8,17 @@ export class ExnestAI {
         this.baseUrl = baseUrl;
     }
     /**
-     * Simple chat completion method
+     * Simple completion method with single prompt
      * @param model - Model identifier (e.g., "openai:gpt-4", "anthropic:claude-3")
-     * @param messages - Array of chat messages
+     * @param prompt - Single prompt string
      * @param maxTokens - Optional maximum tokens to generate
      * @returns Promise<ExnestResponse>
      */
-    async chat(model, messages, maxTokens) {
+    async completion(model, prompt, maxTokens) {
         try {
             const requestBody = {
                 model,
-                messages,
+                prompt,
                 api_key: this.apiKey,
             };
             if (maxTokens) {
@@ -37,13 +37,122 @@ export class ExnestAI {
         }
         catch (error) {
             return {
-                success: false,
-                status_code: 500,
-                message: "Network error occurred",
                 error: {
-                    details: error.message || "Unknown error",
+                    message: "Network error occurred",
+                    type: "client_error",
+                    code: "network_error",
+                    exnest: {
+                        details: error.message || "Unknown error",
+                    },
                 },
             };
+        }
+    }
+    /**
+     * Simple chat completion method
+     * @param model - Model identifier (e.g., "openai:gpt-4", "anthropic:claude-3")
+     * @param messages - Array of chat messages
+     * @param maxTokens - Optional maximum tokens to generate
+     * @returns Promise<ExnestResponse>
+     */
+    async chat(model, messages, maxTokens) {
+        try {
+            const requestBody = {
+                model,
+                messages,
+                api_key: this.apiKey,
+            };
+            if (maxTokens) {
+                requestBody.max_tokens = maxTokens;
+            }
+            const response = await fetch(`${this.baseUrl}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${this.apiKey}`,
+                },
+                body: JSON.stringify(requestBody),
+            });
+            const result = await response.json();
+            return result;
+        }
+        catch (error) {
+            return {
+                error: {
+                    message: "Network error occurred",
+                    type: "client_error",
+                    code: "network_error",
+                    exnest: {
+                        details: error.message || "Unknown error",
+                    },
+                },
+            };
+        }
+    }
+    /**
+     * Stream completion with single prompt
+     * @param model - Model identifier
+     * @param prompt - Single prompt string
+     * @param maxTokens - Optional maximum tokens to generate
+     * @returns AsyncGenerator<ExnestStreamChunk>
+     */
+    async *streamCompletion(model, prompt, maxTokens) {
+        try {
+            const requestBody = {
+                model,
+                prompt,
+                api_key: this.apiKey,
+                stream: true,
+            };
+            if (maxTokens) {
+                requestBody.max_tokens = maxTokens;
+            }
+            const response = await fetch(`${this.baseUrl}/completions`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${this.apiKey}`,
+                    "Accept": "text/event-stream",
+                },
+                body: JSON.stringify(requestBody),
+            });
+            if (!response.body) {
+                throw new Error("Response body is null");
+            }
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            try {
+                let buffer = "";
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done)
+                        break;
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split("\n");
+                    buffer = lines.pop() || "";
+                    for (const line of lines) {
+                        if (line.startsWith("data: ")) {
+                            const data = line.slice(6);
+                            if (data === "[DONE]") {
+                                return;
+                            }
+                            try {
+                                const chunk = JSON.parse(data);
+                                yield chunk;
+                            }
+                            catch (parseError) {
+                                console.error("Failed to parse stream chunk:", parseError);
+                            }
+                        }
+                    }
+                }
+            }
+            finally {
+                reader.releaseLock();
+            }
+        }
+        catch (error) {
+            throw new Error(`Streaming failed: ${error.message}`);
         }
     }
     /**
@@ -64,7 +173,7 @@ export class ExnestAI {
             if (maxTokens) {
                 requestBody.max_tokens = maxTokens;
             }
-            const response = await fetch(`${this.baseUrl}/completions`, {
+            const response = await fetch(`${this.baseUrl}/chat/completions`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
@@ -139,11 +248,13 @@ export class ExnestAI {
         }
         catch (error) {
             return {
-                success: false,
-                status_code: 500,
-                message: "Network error occurred",
                 error: {
-                    details: error.message || "Unknown error",
+                    message: "Network error occurred",
+                    type: "client_error",
+                    code: "network_error",
+                    exnest: {
+                        details: error.message || "Unknown error",
+                    },
                 },
             };
         }
@@ -166,11 +277,13 @@ export class ExnestAI {
         }
         catch (error) {
             return {
-                success: false,
-                status_code: 500,
-                message: "Network error occurred",
                 error: {
-                    details: error.message || "Unknown error",
+                    message: "Network error occurred",
+                    type: "client_error",
+                    code: "network_error",
+                    exnest: {
+                        details: error.message || "Unknown error",
+                    },
                 },
             };
         }

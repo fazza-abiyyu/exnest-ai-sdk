@@ -22,7 +22,16 @@ export declare function integrateWithController(apiKey: string, model: string, m
         prompt_tokens: number;
         completion_tokens: number;
         total_tokens: number;
-    };
-    model: string;
+    } | undefined;
+    model: string | undefined;
+    billing: {
+        transaction_id: string;
+        actual_cost_usd: string;
+        estimated_cost_usd: string;
+        refund_amount_usd: string;
+        wallet_currency: string;
+        deducted_amount: string;
+        exchange_rate: string | null;
+    } | undefined;
 }>;
 //# sourceMappingURL=examples.d.ts.map

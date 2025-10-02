@@ -1,6 +1,6 @@
 {
   "name": "@exnest-dev/ai",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "Official SDK for Exnest AI - A unified API for multiple AI models",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

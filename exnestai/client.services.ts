@@ -21,37 +21,79 @@ export interface ExnestChatOptions {
   temperature?: number;
   maxTokens?: number;
   timeout?: number;
-  openaiCompatible?: boolean;
+  exnestMetadata?: boolean;  // Enable Exnest-specific metadata (billing, transaction info)
   stream?: boolean;
 }
 
-export interface ExnestResponse {
-  success: boolean;
-  status_code: number;
-  message: string;
-  data?: {
-    model: string;
-    choices: Array<{
-      message: {
-        role: string;
-        content: string;
-      };
-    }>;
-    usage: {
-      prompt_tokens: number;
-      completion_tokens: number;
-      total_tokens: number;
+// Base response interface with common OpenAI-compatible fields
+export interface ExnestBaseResponse {
+  id?: string;
+  object?: string;
+  created?: number;
+  model?: string;
+  usage?: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  
+  // Exnest-specific metadata (when exnest_metadata=true)
+  exnest?: {
+    billing?: {
+      transaction_id: string;
+      actual_cost_usd: string;
+      estimated_cost_usd: string;
+      refund_amount_usd: string;
+      wallet_currency: string;
+      deducted_amount: string;
+      exchange_rate: string | null;
+    };
+    links?: {
+      transaction: string;
+      apiKey: string;
+    };
+    processing_time_ms?: number;
+  };
+  
+  // Error fields (OpenAI compatible)
+  error?: {
+    message: string;
+    type: string;
+    code: string;
+    exnest?: {
+      transaction_refunded?: boolean;
+      processing_time_ms?: number;
+      original_error?: string;
+      details?: string;
     };
   };
-  error?: any;
-  meta?: {
-    timestamp: string;
-    request_id: string;
-    version: string;
-    execution_time: string;
-    execution_time_ms?: number;
-  };
 }
+
+// Chat completion response (object: "chat.completion")
+export interface ExnestChatResponse extends ExnestBaseResponse {
+  object?: "chat.completion";
+  choices?: Array<{
+    index?: number;
+    message?: {
+      role: string;
+      content: string;
+    };
+    finish_reason?: string;
+  }>;
+}
+
+// Text completion response (object: "text_completion")
+export interface ExnestCompletionResponse extends ExnestBaseResponse {
+  object?: "text_completion";
+  choices?: Array<{
+    index?: number;
+    text?: string;
+    finish_reason?: string;
+  }>;
+}
+
+// Union type for any response
+export type ExnestResponse = ExnestChatResponse | ExnestCompletionResponse;
 
 export interface ExnestStreamChunk {
   id: string;
@@ -68,17 +110,20 @@ export interface ExnestStreamChunk {
   }>;
 }
 
-export interface ExnestErrorResponse {
-  success: false;
-  status_code: number;
-  message: string;
+// Error response type (can be either chat or completion format with error)
+export type ExnestErrorResponse = ExnestBaseResponse & {
   error: {
-    details: string;
-    code?: string;
-    type?: string;
+    message: string;
+    type: string;
+    code: string;
+    exnest?: {
+      transaction_refunded?: boolean;
+      processing_time_ms?: number;
+      original_error?: string;
+      details?: string;
+    };
   };
-  requestId?: string;
-}
+};
 
 export interface ExnestModel {
   id: string;
@@ -133,17 +178,64 @@ export class ExnestAI {
   }
 
   /**
+   * Simple text completion with single prompt
+   * @param model - Model identifier (e.g., "gpt-4.1-mini", "anthropic:claude-3")
+   * @param prompt - Single prompt string
+   * @param options - Completion options (temperature, maxTokens, timeout)
+   * @returns Promise<ExnestCompletionResponse>
+   */
+  async completion(
+    model: string,
+    prompt: string,
+    options: ExnestChatOptions = {}
+  ): Promise<ExnestCompletionResponse> {
+    if (!model || typeof model !== "string") {
+      throw new Error("Model must be a non-empty string");
+    }
+    if (!prompt || typeof prompt !== "string") {
+      throw new Error("Prompt must be a non-empty string");
+    }
+
+    const requestBody: any = {
+      model,
+      prompt,
+      api_key: this.apiKey,
+    };
+
+    // Add optional parameters
+    if (options.temperature !== undefined) {
+      requestBody.temperature = options.temperature;
+    }
+    if (options.maxTokens !== undefined) {
+      requestBody.max_tokens = options.maxTokens;
+    }
+    if (options.exnestMetadata !== undefined) {
+      requestBody.exnest_metadata = options.exnestMetadata;
+    }
+    if (options.stream !== undefined) {
+      requestBody.stream = options.stream;
+    }
+    if (options.timeout !== undefined) {
+      requestBody.timeout = options.timeout;
+    }
+
+    const requestTimeout = options.timeout || this.timeout;
+
+    return this.executeRequest("/completions", requestBody, requestTimeout) as Promise<ExnestCompletionResponse>;
+  }
+
+  /**
    * Advanced chat completion with full options
-   * @param model - Model identifier (e.g., "openai:gpt-4", "anthropic:claude-3") 
+   * @param model - Model identifier (e.g., "gpt-4.1-mini", "anthropic:claude-3") 
    * @param messages - Array of chat messages
    * @param options - Chat options (temperature, maxTokens, timeout)
-   * @returns Promise<ExnestResponse>
+   * @returns Promise<ExnestChatResponse>
    */
   async chat(
     model: string, 
     messages: ExnestMessage[], 
     options: ExnestChatOptions = {}
-  ): Promise<ExnestResponse> {
+  ): Promise<ExnestChatResponse> {
     this.validateInputs(model, messages);
 
     const requestBody: any = {
@@ -159,16 +251,64 @@ export class ExnestAI {
     if (options.maxTokens !== undefined) {
       requestBody.max_tokens = options.maxTokens;
     }
-    if (options.openaiCompatible !== undefined) {
-      requestBody.openai_compatible = options.openaiCompatible;
+    if (options.exnestMetadata !== undefined) {
+      requestBody.exnest_metadata = options.exnestMetadata;
     }
     if (options.stream !== undefined) {
       requestBody.stream = options.stream;
     }
+    if (options.timeout !== undefined) {
+      requestBody.timeout = options.timeout;
+    }
 
     const requestTimeout = options.timeout || this.timeout;
 
-    return this.executeRequest("/completions", requestBody, requestTimeout);
+    return this.executeRequest("/chat/completions", requestBody, requestTimeout) as Promise<ExnestChatResponse>;
+  }
+
+  /**
+   * Stream text completion with single prompt
+   * @param model - Model identifier
+   * @param prompt - Single prompt string
+   * @param options - Completion options
+   * @returns AsyncGenerator<ExnestStreamChunk>
+   */
+  async *streamCompletion(
+    model: string,
+    prompt: string,
+    options: ExnestChatOptions = {}
+  ): AsyncGenerator<ExnestStreamChunk, void, unknown> {
+    if (!model || typeof model !== "string") {
+      throw new Error("Model must be a non-empty string");
+    }
+    if (!prompt || typeof prompt !== "string") {
+      throw new Error("Prompt must be a non-empty string");
+    }
+
+    const requestBody: any = {
+      model,
+      prompt,
+      api_key: this.apiKey,
+      stream: true,
+    };
+
+    // Add optional parameters
+    if (options.temperature !== undefined) {
+      requestBody.temperature = options.temperature;
+    }
+    if (options.maxTokens !== undefined) {
+      requestBody.max_tokens = options.maxTokens;
+    }
+    if (options.exnestMetadata !== undefined) {
+      requestBody.exnest_metadata = options.exnestMetadata;
+    }
+    if (options.timeout !== undefined) {
+      requestBody.timeout = options.timeout;
+    }
+
+    const requestTimeout = options.timeout || this.timeout;
+
+    yield* this.executeStreamRequest("/completions", requestBody, requestTimeout);
   }
 
   /**
@@ -199,13 +339,16 @@ export class ExnestAI {
     if (options.maxTokens !== undefined) {
       requestBody.max_tokens = options.maxTokens;
     }
-    if (options.openaiCompatible !== undefined) {
-      requestBody.openai_compatible = options.openaiCompatible;
+    if (options.exnestMetadata !== undefined) {
+      requestBody.exnest_metadata = options.exnestMetadata;
+    }
+    if (options.timeout !== undefined) {
+      requestBody.timeout = options.timeout;
     }
 
     const requestTimeout = options.timeout || this.timeout;
 
-    yield* this.executeStreamRequest("/completions", requestBody, requestTimeout);
+    yield* this.executeStreamRequest("/chat/completions", requestBody, requestTimeout);
   }
 
   /**
@@ -213,13 +356,13 @@ export class ExnestAI {
    * @param model - Model identifier
    * @param input - User input string
    * @param maxTokens - Optional maximum tokens to generate
-   * @returns Promise<ExnestResponse>
+   * @returns Promise<ExnestChatResponse>
    */
   async responses(
     model: string, 
     input: string, 
     maxTokens = 200
-  ): Promise<ExnestResponse> {
+  ): Promise<ExnestChatResponse> {
     if (!input || typeof input !== "string") {
       throw new Error("Input must be a non-empty string");
     }
@@ -356,7 +499,7 @@ export class ExnestAI {
     }
 
     // If all retries failed, return a formatted error response
-    return this.createErrorResponse(lastError);
+    return this.createErrorResponse(lastError) as ExnestResponse;
   }
 
   /**
@@ -459,26 +602,28 @@ export class ExnestAI {
    */
   private createErrorResponse(error: any): ExnestErrorResponse {
     let message = "Network error occurred";
-    let code = "NETWORK_ERROR";
+    let code = "network_error";
+    let type = "client_error";
 
     if (error.name === "AbortError") {
       message = "Request timeout";
-      code = "TIMEOUT";
+      code = "timeout";
+      type = "timeout_error";
     } else if (error.message) {
       message = error.message;
     }
 
     return {
-      success: false,
-      status_code: 500,
-      message,
       error: {
-        details: message,
+        message,
         code,
-        type: "CLIENT_ERROR",
+        type,
+        exnest: {
+          details: message,
+          processing_time_ms: 0,
+        },
       },
-      requestId: `req_${Date.now()}`,
-    };
+    } as ExnestErrorResponse;
   }
 
   /**
@@ -561,7 +706,7 @@ export class ExnestAI {
     try {
       return await this.responses("openai:gpt-3.5-turbo", "Hello", 5);
     } catch (error: any) {
-      return this.createErrorResponse(error);
+      return this.createErrorResponse(error) as ExnestResponse;
     }
   }
 
@@ -572,7 +717,7 @@ export class ExnestAI {
     const testResult = await this.testConnection();
     
     return {
-      status: testResult.success ? "healthy" : "unhealthy",
+      status: testResult.error ? "unhealthy" : "healthy",
       timestamp: new Date().toISOString(),
       config: this.getConfig(),
     };
