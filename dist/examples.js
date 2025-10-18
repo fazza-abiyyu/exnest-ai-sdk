@@ -1,12 +1,24 @@
+"use strict";
 /**
  * Example usage of ExnestAI services
  * This file demonstrates how to use both wrapper and client services
  */
-import { ExnestAI as SimpleExnestAI } from "./wrapper.services";
-import { ExnestAI as AdvancedExnestAI } from "./client.services";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.AdvancedExnestAI = exports.SimpleExnestAI = void 0;
+exports.exampleSimpleWrapper = exampleSimpleWrapper;
+exports.exampleAdvancedClient = exampleAdvancedClient;
+exports.exampleStreaming = exampleStreaming;
+exports.exampleErrorHandling = exampleErrorHandling;
+exports.exampleConfigUpdates = exampleConfigUpdates;
+exports.exampleModelOperations = exampleModelOperations;
+exports.integrateWithController = integrateWithController;
+const wrapper_services_1 = require("./wrapper.services");
+Object.defineProperty(exports, "SimpleExnestAI", { enumerable: true, get: function () { return wrapper_services_1.ExnestAI; } });
+const client_services_1 = require("./client.services");
+Object.defineProperty(exports, "AdvancedExnestAI", { enumerable: true, get: function () { return client_services_1.ExnestAI; } });
 // Example 1: Simple wrapper usage
-export async function exampleSimpleWrapper() {
-    const exnest = new SimpleExnestAI("your-api-key-here");
+async function exampleSimpleWrapper() {
+    const exnest = new wrapper_services_1.ExnestAI("your-api-key-here");
     try {
         // Text completion with single prompt
         const completionResponse = await exnest.completion("openai:gpt-4o-mini", "What is the capital of France?", 500 // maxTokens
@@ -29,8 +41,8 @@ export async function exampleSimpleWrapper() {
     }
 }
 // Example 2: Advanced client usage
-export async function exampleAdvancedClient() {
-    const exnest = new AdvancedExnestAI({
+async function exampleAdvancedClient() {
+    const exnest = new client_services_1.ExnestAI({
         apiKey: "your-api-key-here",
         baseUrl: process.env.EXNEST_API_URL || "https://api.exnest.app/v1",
         timeout: 30000,
@@ -75,8 +87,8 @@ export async function exampleAdvancedClient() {
     }
 }
 // Example 3: Streaming usage
-export async function exampleStreaming() {
-    const exnest = new AdvancedExnestAI({
+async function exampleStreaming() {
+    const exnest = new client_services_1.ExnestAI({
         apiKey: "your-api-key-here",
         debug: true
     });
@@ -108,8 +120,8 @@ export async function exampleStreaming() {
     }
 }
 // Example 4: Error handling
-export async function exampleErrorHandling() {
-    const exnest = new AdvancedExnestAI({
+async function exampleErrorHandling() {
+    const exnest = new client_services_1.ExnestAI({
         apiKey: "invalid-key",
         retries: 2,
         debug: true
@@ -132,8 +144,8 @@ export async function exampleErrorHandling() {
     }
 }
 // Example 5: Configuration updates
-export async function exampleConfigUpdates() {
-    const exnest = new AdvancedExnestAI({
+async function exampleConfigUpdates() {
+    const exnest = new client_services_1.ExnestAI({
         apiKey: "initial-key",
         debug: false
     });
@@ -147,8 +159,8 @@ export async function exampleConfigUpdates() {
     console.log("Updated config:", exnest.getConfig());
 }
 // Example 6: Model operations
-export async function exampleModelOperations() {
-    const exnest = new AdvancedExnestAI({
+async function exampleModelOperations() {
+    const exnest = new client_services_1.ExnestAI({
         apiKey: "your-api-key-here",
         debug: true
     });
@@ -167,14 +179,12 @@ export async function exampleModelOperations() {
         console.error("Model operations error:", error);
     }
 }
-// Export for use in other parts of the application
-export { SimpleExnestAI, AdvancedExnestAI };
 /**
  * Integration with Express.js controller
  * This shows how the services can be integrated into existing controller logic
  */
-export async function integrateWithController(apiKey, model, messages) {
-    const exnest = new AdvancedExnestAI({
+async function integrateWithController(apiKey, model, messages) {
+    const exnest = new client_services_1.ExnestAI({
         apiKey,
         timeout: 30000,
         retries: 2,

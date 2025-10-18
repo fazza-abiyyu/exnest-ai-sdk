@@ -1,6 +1,6 @@
 {
   "name": "@exnest-dev/ai",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "description": "Official SDK for Exnest AI - A unified API for multiple AI models",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,8 +8,9 @@
     "dist/**/*"
   ],
   "scripts": {
-    "build": "tsc",
-    "prepublishOnly": "npm run build",
+  "build": "tsc",
+  "prepublishOnly": "npm run build",
+  "test:node": "node test/node-runtime.test.js",
     "publish:npm": "npm publish --access public",
     "publish:github": "npm publish --access public --registry https://npm.pkg.github.com/",
     "publish:all": "node scripts/publish-all.js"

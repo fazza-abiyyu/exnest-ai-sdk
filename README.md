@@ -182,9 +182,8 @@ This makes the SDK fully compatible with n8n and other tools that use standard B
 ## Supported Models
 
 Currently available models:
-- **OpenAI**: `gpt-4.1-mini`, `gpt-3.5-turbo`
-- **Anthropic**: `claude-3-haiku`, `claude-3-sonnet`, `claude-3-opus`
-- **Google**: `gemini-2.5-flash`, `gemini-1.5-pro`
+- **OpenAI**: `gpt-4.1-series`
+- **Google**: `gemini-2.5-flash`, `gemini-2.5-pro`
 - **Moonshot**: `moonshot-v1-8k`, `moonshot-v1-32k`, `moonshot-v1-128k`
 
 More models will be added in the future.
@@ -290,3 +289,58 @@ This SDK is licensed under the MIT License. See [LICENSE](LICENSE) for more info
 ## Support
 
 For issues and feature requests, please [open an issue](https://github.com/fazza-abiyyu/exnest-ai-sdk/issues) on GitHub.
+
+---
+
+## Testing & Local Installation
+
+Quick notes to reproduce and verify the SDK locally, and to avoid runtime import errors when consuming the package from other projects.
+
+- Run the TypeScript build (generates `dist/`):
+
+```bash
+npm run build
+```
+
+- Run the bundled tests (this project uses Bun for unit tests):
+
+```bash
+# if you have Bun installed
+bun test
+```
+
+- Node runtime smoke test (included in the repo) — verifies `dist/index.js` can be required by Node:
+
+```bash
+node test/node-runtime.test.js
+```
+
+- Install the SDK into another local project without publishing:
+
+1) Using a tarball (recommended for quick verification):
+
+```bash
+# from the sdk-exnestai root
+npm pack
+# in the other project folder
+npm install /path/to/@exnest-dev-ai-<version>.tgz
+```
+
+2) Using `npm link` for development across local projects:
+
+```bash
+# in sdk-exnestai
+npm link
+# in your consumer project (e.g. chat-html)
+npm link @exnest-dev/ai
+```
+
+- If you publish to npm, bump the package version and publish as usual:
+
+```bash
+npm version patch -m "chore(release): %s"
+npm publish --access public
+```
+
+Notes
+- The project build is configured to be Node-compatible (NodeNext module resolution) so that `dist/index.js` resolves `./wrapper.services.js` and other files correctly under Node ESM/CJS interop. If you see ERR_MODULE_NOT_FOUND in the consumer project, reinstall the package there (tarball/link/publish) so it picks up the rebuilt `dist`.

@@ -1,11 +1,13 @@
+"use strict";
 /**
  * Demo script for ExnestAI SDK
  * This script demonstrates the key features of the updated SDK
  */
-import { ExnestAI } from "./index";
+Object.defineProperty(exports, "__esModule", { value: true });
+const index_1 = require("./index");
 async function demo() {
     // Initialize the client
-    const exnest = new ExnestAI({
+    const exnest = new index_1.ExnestAI({
         apiKey: "your-api-key-here",
         baseUrl: "https://api.exnest.app/v1",
         timeout: 30000,

@@ -1,8 +1,11 @@
+"use strict";
 /**
  * ExnestAI Wrapper Service
  * Simple wrapper class following the FazzaAI pattern for basic AI interactions
  */
-export class ExnestAI {
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ExnestAI = void 0;
+class ExnestAI {
     constructor(apiKey, baseUrl = process.env.EXNEST_API_URL || "https://api.exnest.app/v1") {
         this.apiKey = apiKey;
         this.baseUrl = baseUrl;
@@ -320,4 +323,5 @@ export class ExnestAI {
         this.baseUrl = newBaseUrl;
     }
 }
+exports.ExnestAI = ExnestAI;
 //# sourceMappingURL=wrapper.services.js.map
